@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>游戏1：英文指令指认对战</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 20px; text-align: center; }
+        .score-box { display: flex; justify-content: space-around; margin: 20px 0; }
+        .score { font-size: 24px; font-weight: bold; padding: 10px 20px; border-radius: 10px; }
+        #scoreA { background: #e3f2fd; color: #1976d2; }
+        #scoreB { background: #fff3e0; color: #f57c00; }
+        .btn-group { display: flex; flex-direction: column; gap: 15px; margin: 30px 0; }
+        button { padding: 15px; font-size: 18px; border: none; border-radius: 8px; cursor: pointer; color: white; }
+        #btnRandom { background: #2196f3; }
+        #btnAdd { background: #4caf50; }
+        #btnSwitch { background: #ff9800; }
+        #btnBack { background: #9e9e9e; margin-top: 20px; }
+        #sentence { font-size: 22px; margin: 20px 0; padding: 15px; border: 1px solid #eee; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <h2>游戏1：英文指令指认对战</h2>
+    <p>当前玩家：<span id="currentPlayer">A</span></p>
+
+    <div class="score-box">
+        <div class="score" id="scoreA">玩家A：0</div>
+        <div class="score" id="scoreB">玩家B：0</div>
+    </div>
+
+    <div id="sentence">点击「随机出题」开始游戏</div>
+
+    <div class="btn-group">
+        <button id="btnRandom">随机出题</button>
+        <button id="btnAdd">答对加分</button>
+        <button id="btnSwitch">切换玩家</button>
+    </div>
+
+    <button id="btnBack" onclick="window.location.href='index.html'">返回首页</button>
+
+    <script>
+        // 游戏1的题库，把你的70句指令填在这里，逗号分隔
+        const questionBank = [
+            "Which one is circle？",
+            "Which one is square？",
+            "Which one is rectangle",
+            "Which one is star",
+            "Which one is heart？"
+            // 后面继续补充你的句子即可
+        ];
+
+        let scoreA = 0;
+        let scoreB = 0;
+        let currentPlayer = "A";
+
+        // 随机出题并朗读
+        document.getElementById("btnRandom").addEventListener("click", function() {
+            const randomIndex = Math.floor(Math.random() * questionBank.length);
+            const sentence = questionBank[randomIndex];
+            document.getElementById("sentence").innerText = sentence;
+            
+            // 英文语音播报
+            const utterance = new SpeechSynthesisUtterance(sentence);
+            utterance.lang = "en-US";
+            speechSynthesis.speak(utterance);
+        });
+
+        // 答对加分
+        document.getElementById("btnAdd").addEventListener("click", function() {
+            if (currentPlayer === "A") {
+                scoreA++;
+                document.getElementById("scoreA").innerText = `玩家A：${scoreA}`;
+            } else {
+                scoreB++;
+                document.getElementById("scoreB").innerText = `玩家B：${scoreB}`;
+            }
+            // 答对音效
+            const utterance = new SpeechSynthesisUtterance("Good job!");
+            utterance.lang = "en-US";
+            speechSynthesis.speak(utterance);
+        });
+
+        // 切换玩家
+        document.getElementById("btnSwitch").addEventListener("click", function() {
+            currentPlayer = currentPlayer === "A" ? "B" : "A";
+            document.getElementById("currentPlayer").innerText = currentPlayer;
+        });
+    </script>
+</body>
+</html>
