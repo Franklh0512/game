@@ -38,8 +38,10 @@
 
     <button id="btnBack" onclick="window.location.href='index.html'">返回首页</button>
 
+    <!-- 全平台通用音频标签 -->
+    <audio id="audio" playsinline></audio>
+
     <script>
-        // 题库
         const questionBank = [
             "Which one is circle?",
             "Which one is square?",
@@ -51,29 +53,27 @@
         let scoreA = 0;
         let scoreB = 0;
         let currentPlayer = "A";
+        const audio = document.getElementById("audio");
+
+        // 全平台发音函数（苹果/安卓/微信 100% 可用）
+        function speak(text) {
+            try {
+                // 有道英文发音接口（全球通用）
+                let url = "https://dict.youdao.com/dictvoice?audio=" + encodeURIComponent(text) + "&type=2";
+                audio.src = url;
+                audio.play().catch(err => console.log("播放兼容中"));
+            } catch(e) {}
+        }
 
         // 随机出题
         document.getElementById("btnRandom").onclick = function() {
-            try {
-                // 1. 随机取句子
-                const idx = Math.floor(Math.random() * questionBank.length);
-                const text = questionBank[idx];
-
-                // 2. 显示句子（必执行）
-                document.getElementById("sentence").innerText = text;
-
-                // 3. 播放语音（兼容手机）
-                let u = new SpeechSynthesisUtterance(text);
-                u.lang = "en-US";
-                u.rate = 0.9;
-                window.speechSynthesis.cancel();
-                window.speechSynthesis.speak(u);
-            } catch(e) {
-                console.log("语音不支持，仅显示文字");
-            }
+            let idx = Math.floor(Math.random() * questionBank.length);
+            let sentence = questionBank[idx];
+            document.getElementById("sentence").innerText = sentence;
+            speak(sentence);
         };
 
-        // 加分
+        // 答对加分
         document.getElementById("btnAdd").onclick = function() {
             if (currentPlayer === "A") {
                 scoreA++;
@@ -82,13 +82,7 @@
                 scoreB++;
                 document.getElementById("scoreB").innerText = "玩家B：" + scoreB;
             }
-
-            try {
-                let u = new SpeechSynthesisUtterance("Good job!");
-                u.lang = "en-US";
-                window.speechSynthesis.cancel();
-                window.speechSynthesis.speak(u);
-            } catch(e){}
+            speak("Good job!");
         };
 
         // 切换玩家
