@@ -15,10 +15,9 @@
         #btnRandom { background: #2196f3; }
         #btnAdd { background: #4caf50; }
         #btnSwitch { background: #ff9800; }
+        #btnVoice { background: #9c27b0; }
         #btnBack { background: #9e9e9e; margin-top: 20px; }
-        #sentence { font-size: 22px; margin: 20px 0; padding: 15px; border: 1px solid #eee; border-radius: 8px; }
-        /* 隐藏所有音频 */
-        audio { display: none; }
+        #sentence { font-size: 22px; margin: 20px 0; padding: 15px; border: 1px solid #eee; border-radius: 8px; min-height: 30px; }
     </style>
 </head>
 <body>
@@ -34,31 +33,12 @@
 
     <div class="btn-group">
         <button id="btnRandom">随机出题</button>
+        <button id="btnVoice">点我听读音</button>
         <button id="btnAdd">答对加分</button>
         <button id="btnSwitch">切换玩家</button>
     </div>
 
     <button id="btnBack" onclick="window.location.href='index.html'">返回首页</button>
-
-    <!-- 预存每一句对应的音频 -->
-    <audio id="s0" controls preload="auto">
-        <source src="https://freetestdata.com/wp-content/uploads/2021/09/Free_Test_Data_100KB_MP3.mp3" type="audio/mpeg">
-    
-    <audio id="s1" controls preload="auto">
-        <source src="https://freetestdata.com/wp-content/uploads/2021/09/Free_Test_Data_100KB_MP3.mp3" type="audio/mpeg">
-    
-    <audio id="s2" controls preload="auto">
-        <source src="https://freetestdata.com/wp-content/uploads/2021/09/Free_Test_Data_100KB_MP3.mp3" type="audio/mpeg">
-    
-    <audio id="s3" controls preload="auto">
-        <source src="https://freetestdata.com/wp-content/uploads/2021/09/Free_Test_Data_100KB_MP3.mp3" type="audio/mpeg">
-    
-    <audio id="s4" controls preload="auto">
-        <source src="https://freetestdata.com/wp-content/uploads/2021/09/Free_Test_Data_100KB_MP3.mp3" type="audio/mpeg">
-    
-    <audio id="goodjob" controls preload="auto">
-        <source src="https://freetestdata.com/wp-content/uploads/2021/09/Free_Test_Data_100KB_MP3.mp3" type="audio/mpeg">
-    
 
     <script>
         const questionBank = [
@@ -72,31 +52,33 @@
         let scoreA = 0;
         let scoreB = 0;
         let currentPlayer = "A";
+        let nowSentence = "";
 
-        // 停止所有音频
-        function stopAllAudio(){
-            for(let i=0;i<5;i++){
-                let a = document.getElementById('s'+i);
-                a.pause();
-                a.currentTime = 0;
-            }
-            document.getElementById('goodjob').pause();
-            document.getElementById('goodjob').currentTime = 0;
+        // 朗读函数
+        function speakText(txt) {
+            window.speechSynthesis.cancel();
+            let u = new SpeechSynthesisUtterance(txt);
+            u.lang = "en-US";
+            u.rate = 0.85;
+            window.speechSynthesis.speak(u);
         }
 
-        // 随机出题
+        // 随机出题 只显示文字，不自动发音
         document.getElementById("btnRandom").addEventListener("click", function() {
-            stopAllAudio();
-            let idx = Math.floor(Math.random() * questionBank.length);
-            let sentence = questionBank[idx];
-            document.getElementById("sentence").innerText = sentence;
-            // 播放对应音频
-            document.getElementById('s'+idx).play();
+            const idx = Math.floor(Math.random() * questionBank.length);
+            nowSentence = questionBank[idx];
+            document.getElementById("sentence").innerText = nowSentence;
+        });
+
+        // 手动点击听读音（微信只认这次手动点击）
+        document.getElementById("btnVoice").addEventListener("click", function() {
+            if(nowSentence) {
+                speakText(nowSentence);
+            }
         });
 
         // 答对加分
         document.getElementById("btnAdd").addEventListener("click", function() {
-            stopAllAudio();
             if (currentPlayer === "A") {
                 scoreA++;
                 document.getElementById("scoreA").innerText = `玩家A：${scoreA}`;
@@ -104,7 +86,6 @@
                 scoreB++;
                 document.getElementById("scoreB").innerText = `玩家B：${scoreB}`;
             }
-            document.getElementById('goodjob').play();
         });
 
         // 切换玩家
