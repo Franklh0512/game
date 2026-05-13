@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>游戏1：英文指令指认对战</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 20px; text-align: center; }
@@ -16,7 +16,7 @@
         #btnAdd { background: #4caf50; }
         #btnSwitch { background: #ff9800; }
         #btnBack { background: #9e9e9e; margin-top: 20px; }
-        #sentence { font-size: 22px; margin: 20px 0; padding: 15px; border: 1px solid #eee; border-radius: 8px; min-height: 30px; }
+        #sentence { font-size: 22px; margin: 20px 0; padding: 15px; border: 1px solid #eee; border-radius: 8px; }
     </style>
 </head>
 <body>
@@ -38,8 +38,10 @@
 
     <button id="btnBack" onclick="window.location.href='index.html'">返回首页</button>
 
-    <!-- 全平台通用音频标签 -->
-    <audio id="audio" playsinline></audio>
+    <!-- 微信解锁声音用空音频 -->
+    <audio id="unlockAudio" playsinline preload="auto">
+        <source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA" type="audio/wav">
+    
 
     <script>
         const questionBank = [
@@ -53,43 +55,59 @@
         let scoreA = 0;
         let scoreB = 0;
         let currentPlayer = "A";
-        const audio = document.getElementById("audio");
+        let voiceUnlocked = false;
+        const unlockAudio = document.getElementById('unlockAudio');
 
-        // 全平台发音函数（苹果/安卓/微信 100% 可用）
-        function speak(text) {
-            try {
-                // 有道英文发音接口（全球通用）
-                let url = "https://dict.youdao.com/dictvoice?audio=" + encodeURIComponent(text) + "&type=2";
-                audio.src = url;
-                audio.play().catch(err => console.log("播放兼容中"));
-            } catch(e) {}
+        // 第一步：微信强制解锁音频权限
+        function unlockVoice() {
+            if (voiceUnlocked) return;
+            unlockAudio.play().then(() => {
+                voiceUnlocked = true;
+            }).catch(e=>{});
+        }
+
+        // 本地系统语音朗读（兼容苹果/安卓/非微信浏览器）
+        function ttsSpeak(text) {
+            window.speechSynthesis.cancel();
+            let utt = new SpeechSynthesisUtterance(text);
+            utt.lang = "en-US";
+            utt.rate = 0.85;
+            utt.volume = 1;
+            window.speechSynthesis.speak(utt);
         }
 
         // 随机出题
-        document.getElementById("btnRandom").onclick = function() {
+        document.getElementById("btnRandom").addEventListener("click", function() {
+            unlockVoice();
             let idx = Math.floor(Math.random() * questionBank.length);
             let sentence = questionBank[idx];
             document.getElementById("sentence").innerText = sentence;
-            speak(sentence);
-        };
+            // 执行朗读
+            setTimeout(()=>{
+                ttsSpeak(sentence);
+            }, 100);
+        });
 
         // 答对加分
-        document.getElementById("btnAdd").onclick = function() {
+        document.getElementById("btnAdd").addEventListener("click", function() {
+            unlockVoice();
             if (currentPlayer === "A") {
                 scoreA++;
-                document.getElementById("scoreA").innerText = "玩家A：" + scoreA;
+                document.getElementById("scoreA").innerText = `玩家A：${scoreA}`;
             } else {
                 scoreB++;
-                document.getElementById("scoreB").innerText = "玩家B：" + scoreB;
+                document.getElementById("scoreB").innerText = `玩家B：${scoreB}`;
             }
-            speak("Good job!");
-        };
+            setTimeout(()=>{
+                ttsSpeak("Good job!");
+            }, 100);
+        });
 
         // 切换玩家
-        document.getElementById("btnSwitch").onclick = function() {
+        document.getElementById("btnSwitch").addEventListener("click", function() {
             currentPlayer = currentPlayer === "A" ? "B" : "A";
             document.getElementById("currentPlayer").innerText = currentPlayer;
-        };
+        });
     </script>
 </body>
 </html>
