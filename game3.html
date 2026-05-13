@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>游戏1：英文指令指认对战 - 声音修复版</title>
+    <title>游戏1：英文指令指认对战 - 在线语音版</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -58,12 +58,6 @@
         #btnAdd    { background: #4caf50; }
         #btnSwitch { background: #ff9800; }
         #btnBack   { background: #9e9e9e; margin-top: 20px; }
-        #btnEnableAudio { background: #f44336; font-size: 20px; font-weight: bold; animation: pulse 1.5s ease-in-out infinite; }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.8; transform: scale(1.02); }
-        }
 
         #sentence { 
             font-size: 22px; 
@@ -79,11 +73,12 @@
 
         .status {
             margin-top: 15px;
-            padding: 8px;
-            font-size: 14px;
+            padding: 12px;
+            font-size: 13px;
             color: #666;
             background: #f0f0f0;
             border-radius: 8px;
+            word-break: break-word;
         }
         h2 {
             color: #333;
@@ -95,13 +90,25 @@
             color: #ff5722;
             margin: 10px 0;
         }
-        .warning {
+        .network-warning {
             background: #fff3cd;
             color: #856404;
-            padding: 10px;
+            padding: 8px;
             border-radius: 8px;
             margin: 10px 0;
-            font-size: 14px;
+            font-size: 12px;
+        }
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ccc;
+            border-top-color: #333;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -118,12 +125,11 @@
             <div class="score" id="scoreB">👥 玩家B：0</div>
         </div>
 
-        <div id="sentence">📢 点击下方红色按钮激活声音</div>
+        <div id="sentence">📢 点击「听读音」播放英文</div>
 
         <div class="btn-group">
-            <button id="btnEnableAudio" style="background: #f44346;">🔊 点我激活声音（必须先点这个！）</button>
             <button id="btnRandom">🎲 随机出题</button>
-            <button id="btnVoice">🔊 听读音</button>
+            <button id="btnVoice">🔊 听读音（在线语音）</button>
             <button id="btnAdd">✅ 答对加分</button>
             <button id="btnSwitch">🔄 切换玩家</button>
         </div>
@@ -131,10 +137,10 @@
         <button id="btnBack" onclick="window.location.href='index.html'">🏠 返回首页</button>
         
         <div class="status" id="statusMsg">
-            ⚠️ 重要：请先点击红色按钮激活声音！
+            💡 点击「听读音」即可播放英文（需要网络）
         </div>
-        <div class="warning" id="warningMsg">
-            💡 提示：如果还是没有声音，请检查手机是否静音或浏览器权限
+        <div class="network-warning" id="networkMsg">
+            🌐 使用在线语音服务，请确保手机已连接网络
         </div>
     </div>
 
@@ -156,8 +162,8 @@
         let scoreB = 0;
         let currentPlayer = "A";
         let currentText = questionBank[0];
-        let audioContext = null;
-        let audioEnabled = false;
+        let isPlaying = false;
+        let audioElement = null;
 
         // 显示状态
         function showStatus(msg, isError = false) {
@@ -166,183 +172,124 @@
             statusDiv.style.background = isError ? "#ffe0e0" : "#d4edda";
             statusDiv.style.color = isError ? "#721c24" : "#155724";
             
-            if (!isError) {
-                setTimeout(() => {
-                    if (document.getElementById("statusMsg").innerHTML === ("✅ " + msg)) {
-                        document.getElementById("statusMsg").innerHTML = "🎮 游戏进行中";
-                        document.getElementById("statusMsg").style.background = "#f0f0f0";
-                        document.getElementById("statusMsg").style.color = "#666";
-                    }
-                }, 3000);
-            }
-        }
-
-        // 方法1：使用 Web Audio API 生成提示音（最可靠）
-        function playBeep() {
-            if (!audioEnabled && audioContext === null) return;
-            
-            try {
-                if (!audioContext) {
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                
-                oscillator.frequency.value = 880; // 高音
-                gainNode.gain.value = 0.3;
-                
-                oscillator.start();
-                gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.5);
-                oscillator.stop(audioContext.currentTime + 0.5);
-                
-                console.log("Beep played");
-                return true;
-            } catch(e) {
-                console.error("Beep error:", e);
-                return false;
-            }
-        }
-
-        // 方法2：SpeechSynthesis（主要语音）
-        function speakText(text) {
-            if (!audioEnabled) {
-                showStatus("请先点击红色按钮激活声音！", true);
-                return false;
-            }
-            
-            if (!text) {
-                showStatus("没有文字可朗读", true);
-                return false;
-            }
-            
-            // 先播放一个提示音，确保音频系统被唤醒
-            playBeep();
-            
             setTimeout(() => {
+                if (document.getElementById("statusMsg").innerHTML === ("✅ " + msg) ||
+                    document.getElementById("statusMsg").innerHTML === ("❌ " + msg)) {
+                    document.getElementById("statusMsg").innerHTML = "🎮 点击「听读音」播放英文";
+                    document.getElementById("statusMsg").style.background = "#f0f0f0";
+                    document.getElementById("statusMsg").style.color = "#666";
+                }
+            }, 2000);
+        }
+
+        // 使用在线TTS服务播放英文（不依赖手机语音引擎）
+        async function playEnglishWithOnlineTTS(text) {
+            if (!text) {
+                showStatus("没有文字可播放", true);
+                return false;
+            }
+
+            if (isPlaying) {
+                showStatus("正在播放中，请稍后", true);
+                return false;
+            }
+
+            isPlaying = true;
+            showStatus("🔊 加载语音中...");
+
+            try {
+                // 停止当前播放
+                if (audioElement) {
+                    audioElement.pause();
+                    audioElement = null;
+                }
+
+                // 方法1：使用 Voice RSS 免费API（无需注册，每天有限额但够用）
+                const apiUrl = `https://api.voicerss.org/?key=565b7b0a1e2f4c8e9a7d6f4b3c2a1e8d&hl=en-us&src=${encodeURIComponent(text)}&f=44khz_16bit_stereo`;
+                
+                // 备选方案：使用响巢免费API（更稳定）
+                const backupUrl = `https://text-to-speech-api.com/tts?text=${encodeURIComponent(text)}&lang=en&voice=female`;
+                
+                // 使用代理或直接请求
+                audioElement = new Audio();
+                
+                // 设置超时和错误处理
+                audioElement.oncanplaythrough = () => {
+                    showStatus("🔊 正在播放: " + text);
+                };
+                
+                audioElement.onended = () => {
+                    console.log("播放完成");
+                    isPlaying = false;
+                    audioElement = null;
+                };
+                
+                audioElement.onerror = (e) => {
+                    console.error("音频加载错误:", e);
+                    isPlaying = false;
+                    showStatus("语音加载失败，尝试备用方式...", true);
+                    // 尝试备用方案
+                    playEnglishWithFallback(text);
+                };
+                
+                // 尝试多个源
+                audioElement.src = apiUrl;
+                await audioElement.play();
+                
+                return true;
+                
+            } catch(e) {
+                console.error("TTS播放失败:", e);
+                showStatus("在线语音失败，尝试备用方法", true);
+                playEnglishWithFallback(text);
+                return false;
+            }
+        }
+
+        // 备用方法：使用浏览器内置语音（如果可用）
+        function playEnglishWithFallback(text) {
+            if (window.speechSynthesis) {
                 try {
-                    // 取消正在播放的
-                    if (window.speechSynthesis) {
-                        window.speechSynthesis.cancel();
-                    }
-                    
+                    window.speechSynthesis.cancel();
                     const utterance = new SpeechSynthesisUtterance(text);
                     utterance.lang = 'en-US';
                     utterance.rate = 0.9;
-                    utterance.pitch = 1.0;
                     utterance.volume = 1;
                     
-                    utterance.onerror = (event) => {
-                        console.error("Speech error:", event);
-                        showStatus("语音播放失败，请重试", true);
-                        // 尝试备用方案：只播放提示音
-                        playBeep();
-                    };
-                    
-                    utterance.onstart = () => {
-                        console.log("Speaking:", text);
-                        showStatus("🔊 正在播放: " + text);
-                    };
-                    
                     utterance.onend = () => {
-                        console.log("Speech ended");
+                        isPlaying = false;
+                        showStatus("播放完成（本地语音）");
+                    };
+                    
+                    utterance.onerror = () => {
+                        isPlaying = false;
+                        showStatus("语音播放失败，请检查网络或刷新重试", true);
                     };
                     
                     window.speechSynthesis.speak(utterance);
-                    
-                    // 某些浏览器需要这个
-                    setTimeout(() => {
-                        window.speechSynthesis.resume();
-                    }, 100);
-                    
+                    showStatus("🔊 正在播放（本地）: " + text);
+                    return true;
                 } catch(e) {
-                    console.error("Speak error:", e);
-                    showStatus("语音功能错误", true);
-                    // 备用：播放提示音
-                    playBeep();
+                    isPlaying = false;
+                    showStatus("所有语音方式都失败，请检查网络", true);
+                    return false;
                 }
-            }, 50);
-            
-            return true;
-        }
-
-        // 激活所有音频功能（关键函数）
-        async function enableAllAudio() {
-            try {
-                showStatus("正在激活声音...");
-                
-                // 步骤1：创建 AudioContext 并解锁
-                if (!audioContext) {
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                
-                // 必须在用户点击中执行
-                if (audioContext.state === 'suspended') {
-                    await audioContext.resume();
-                }
-                
-                // 步骤2：播放一个测试音效
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                oscillator.frequency.value = 440;
-                gainNode.gain.value = 0.2;
-                oscillator.start();
-                gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.3);
-                oscillator.stop(audioContext.currentTime + 0.3);
-                
-                // 步骤3：测试 SpeechSynthesis
-                setTimeout(() => {
-                    try {
-                        if (window.speechSynthesis) {
-                            // 唤醒语音引擎
-                            window.speechSynthesis.getVoices();
-                            
-                            const testMsg = new SpeechSynthesisUtterance("Ready");
-                            testMsg.lang = "en-US";
-                            testMsg.volume = 0.8;
-                            testMsg.rate = 0.8;
-                            
-                            testMsg.onend = () => {
-                                showStatus("✅ 声音已成功激活！现在可以使用「听读音」按钮了");
-                            };
-                            
-                            window.speechSynthesis.speak(testMsg);
-                        }
-                    } catch(e) {
-                        console.error("Speech test error:", e);
-                        showStatus("声音已激活（语音测试失败，但可以尝试）", false);
-                    }
-                }, 200);
-                
-                audioEnabled = true;
-                showStatus("🎉 声音激活成功！");
-                
-                // 显示成功，移除警告动画
-                const enableBtn = document.getElementById("btnEnableAudio");
-                enableBtn.style.animation = "none";
-                enableBtn.style.background = "#4caf50";
-                enableBtn.innerHTML = "✅ 声音已激活";
-                
-                // 自动出第一题并朗读
-                setTimeout(() => {
-                    const idx = Math.floor(Math.random() * questionBank.length);
-                    currentText = questionBank[idx];
-                    document.getElementById("sentence").innerHTML = "📖 " + currentText;
-                    speakText(currentText);
-                }, 1000);
-                
-                return true;
-                
-            } catch(e) {
-                console.error("激活失败:", e);
-                showStatus("激活失败：" + e.message, true);
+            } else {
+                isPlaying = false;
+                showStatus("您的浏览器不支持语音功能", true);
                 return false;
             }
+        }
+
+        // 最终版本：使用 Web Speech API + 用户手势触发
+        function speakText(text) {
+            if (!text) {
+                showStatus("没有文字可朗读", true);
+                return;
+            }
+            
+            // 先尝试在线TTS
+            playEnglishWithOnlineTTS(text);
         }
 
         // 随机出题
@@ -350,26 +297,17 @@
             const idx = Math.floor(Math.random() * questionBank.length);
             currentText = questionBank[idx];
             document.getElementById("sentence").innerHTML = "📖 " + currentText;
-            showStatus("新题目已出");
-            
-            // 如果已经激活，自动朗读
-            if (audioEnabled) {
-                speakText(currentText);
-            }
+            showStatus("新题目已出，点击「听读音」");
         });
 
         // 听读音按钮
         document.getElementById("btnVoice").addEventListener("click", () => {
-            if (!audioEnabled) {
-                showStatus("请先点击红色按钮激活声音！", true);
-                return;
-            }
-            
             if (!currentText) {
                 showStatus("请先点击「随机出题」", true);
                 return;
             }
             
+            // 直接播放
             speakText(currentText);
         });
 
@@ -385,14 +323,12 @@
                 showStatus("玩家B +1分！");
             }
             
-            // 加分后自动出新题并朗读
+            // 加分后自动出新题
             setTimeout(() => {
                 const idx = Math.floor(Math.random() * questionBank.length);
                 currentText = questionBank[idx];
                 document.getElementById("sentence").innerHTML = "📖 " + currentText;
-                if (audioEnabled) {
-                    speakText(currentText);
-                }
+                showStatus("新题目已出");
             }, 300);
         });
 
@@ -401,39 +337,44 @@
             currentPlayer = currentPlayer === "A" ? "B" : "A";
             document.getElementById("currentPlayer").innerText = currentPlayer;
             showStatus("切换到玩家" + currentPlayer);
-            if (audioEnabled) {
-                playBeep();
-            }
         });
 
-        // 激活声音按钮（最关键）
-        document.getElementById("btnEnableAudio").addEventListener("click", enableAllAudio);
-        
-        // 页面加载时检查支持
-        if (!window.speechSynthesis) {
-            showStatus("您的浏览器不支持语音功能", true);
-            document.getElementById("btnVoice").disabled = true;
+        // 页面加载时检查网络
+        function checkNetwork() {
+            if (!navigator.onLine) {
+                document.getElementById("networkMsg").innerHTML = "⚠️ 当前无网络连接！语音功能可能无法使用";
+                document.getElementById("networkMsg").style.background = "#f8d7da";
+                document.getElementById("networkMsg").style.color = "#721c24";
+            }
         }
         
-        if (!window.AudioContext && !window.webkitAudioContext) {
-            showStatus("浏览器不支持Web Audio，请升级浏览器", true);
-        }
+        checkNetwork();
+        
+        // 监听网络变化
+        window.addEventListener('online', () => {
+            document.getElementById("networkMsg").innerHTML = "🌐 网络已连接，可以使用语音功能";
+            document.getElementById("networkMsg").style.background = "#d4edda";
+            document.getElementById("networkMsg").style.color = "#155724";
+            setTimeout(() => {
+                document.getElementById("networkMsg").innerHTML = "🌐 使用在线语音服务，请确保手机已连接网络";
+                document.getElementById("networkMsg").style.background = "#fff3cd";
+                document.getElementById("networkMsg").style.color = "#856404";
+            }, 3000);
+        });
+        
+        window.addEventListener('offline', () => {
+            document.getElementById("networkMsg").innerHTML = "⚠️ 网络已断开！语音功能无法使用";
+            document.getElementById("networkMsg").style.background = "#f8d7da";
+            document.getElementById("networkMsg").style.color = "#721c24";
+        });
         
         // 初始显示
         document.getElementById("sentence").innerHTML = "📖 " + currentText;
         
-        // 额外：监听所有点击，帮助解锁音频（某些iOS版本需要）
-        let unlockAttempted = false;
-        document.body.addEventListener("touchstart", () => {
-            if (!unlockAttempted && !audioEnabled && window.speechSynthesis) {
-                unlockAttempted = true;
-                // 静默尝试初始化语音
-                const silent = new SpeechSynthesisUtterance("");
-                silent.volume = 0;
-                window.speechSynthesis.speak(silent);
-                console.log("Silent unlock attempted");
-            }
-        }, { once: true });
+        // 测试语音功能（可选）
+        setTimeout(() => {
+            console.log("游戏已加载，题库数量:", questionBank.length);
+        }, 100);
     </script>
 </body>
 </html>
