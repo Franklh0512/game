@@ -16,7 +16,7 @@
         #btnAdd { background: #4caf50; }
         #btnSwitch { background: #ff9800; }
         #btnBack { background: #9e9e9e; margin-top: 20px; }
-        #sentence { font-size: 22px; margin: 20px 0; padding: 15px; border: 1px solid #eee; border-radius: 8px; }
+        #sentence { font-size: 22px; margin: 20px 0; padding: 15px; border: 1px solid #eee; border-radius: 8px; min-height: 30px; }
     </style>
 </head>
 <body>
@@ -39,61 +39,63 @@
     <button id="btnBack" onclick="window.location.href='index.html'">返回首页</button>
 
     <script>
+        // 题库
         const questionBank = [
-            "Which one is circle？",
-            "Which one is square？",
-            "Which one is rectangle",
-            "Which one is star",
-            "Which one is heart？"
+            "Which one is circle?",
+            "Which one is square?",
+            "Which one is rectangle?",
+            "Which one is star?",
+            "Which one is heart?"
         ];
 
         let scoreA = 0;
         let scoreB = 0;
         let currentPlayer = "A";
 
-        // 先激活语音（手机必须要这一步）
-        let isVoiceActivated = false;
-        function activateVoice() {
-            if(isVoiceActivated) return;
-            const uttr = new SpeechSynthesisUtterance("");
-            uttr.lang = "en-US";
-            speechSynthesis.speak(uttr);
-            isVoiceActivated = true;
-        }
+        // 随机出题
+        document.getElementById("btnRandom").onclick = function() {
+            try {
+                // 1. 随机取句子
+                const idx = Math.floor(Math.random() * questionBank.length);
+                const text = questionBank[idx];
 
-        // 随机出题并朗读
-        document.getElementById("btnRandom").addEventListener("click", function() {
-            activateVoice(); // 激活手机语音
-            const randomIndex = Math.floor(Math.random() * questionBank.length);
-            const sentence = questionBank[randomIndex];
-            document.getElementById("sentence").innerText = sentence;
-            
-            const utterance = new SpeechSynthesisUtterance(sentence);
-            utterance.lang = "en-US";
-            speechSynthesis.speak(utterance);
-        });
+                // 2. 显示句子（必执行）
+                document.getElementById("sentence").innerText = text;
 
-        // 答对加分
-        document.getElementById("btnAdd").addEventListener("click", function() {
-            activateVoice();
+                // 3. 播放语音（兼容手机）
+                let u = new SpeechSynthesisUtterance(text);
+                u.lang = "en-US";
+                u.rate = 0.9;
+                window.speechSynthesis.cancel();
+                window.speechSynthesis.speak(u);
+            } catch(e) {
+                console.log("语音不支持，仅显示文字");
+            }
+        };
+
+        // 加分
+        document.getElementById("btnAdd").onclick = function() {
             if (currentPlayer === "A") {
                 scoreA++;
-                document.getElementById("scoreA").innerText = `玩家A：${scoreA}`;
+                document.getElementById("scoreA").innerText = "玩家A：" + scoreA;
             } else {
                 scoreB++;
-                document.getElementById("scoreB").innerText = `玩家B：${scoreB}`;
+                document.getElementById("scoreB").innerText = "玩家B：" + scoreB;
             }
 
-            const utterance = new SpeechSynthesisUtterance("Good job!");
-            utterance.lang = "en-US";
-            speechSynthesis.speak(utterance);
-        });
+            try {
+                let u = new SpeechSynthesisUtterance("Good job!");
+                u.lang = "en-US";
+                window.speechSynthesis.cancel();
+                window.speechSynthesis.speak(u);
+            } catch(e){}
+        };
 
         // 切换玩家
-        document.getElementById("btnSwitch").addEventListener("click", function() {
+        document.getElementById("btnSwitch").onclick = function() {
             currentPlayer = currentPlayer === "A" ? "B" : "A";
             document.getElementById("currentPlayer").innerText = currentPlayer;
-        });
+        };
     </script>
 </body>
 </html>
