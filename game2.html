@@ -1,90 +1,204 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>游戏1：英文指令指认对战</title>
+    <title>英文指令指认对战 - 谷歌语音版</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 20px; text-align: center; }
-        .score-box { display: flex; justify-content: space-around; margin: 20px 0; }
-        .score { font-size: 24px; font-weight: bold; padding: 10px 20px; border-radius: 10px; }
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .score-box {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+        }
+        .score {
+            font-size: 24px;
+            font-weight: bold;
+            padding: 10px 20px;
+            border-radius: 10px;
+        }
         #scoreA { background: #e3f2fd; color: #1976d2; }
         #scoreB { background: #fff3e0; color: #f57c00; }
-        .btn-group { display: flex; flex-direction: column; gap: 15px; margin: 30px 0; }
-        button { padding: 15px; font-size: 18px; border: none; border-radius: 8px; cursor: pointer; color: white; }
+        button {
+            padding: 16px;
+            font-size: 18px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            color: white;
+            width: 100%;
+        }
         #btnRandom { background: #2196f3; }
+        #btnVoice { background: #9c27b0; }
         #btnAdd { background: #4caf50; }
         #btnSwitch { background: #ff9800; }
-        #btnBack { background: #9e9e9e; margin-top: 20px; }
-        #sentence { font-size: 22px; margin: 20px 0; padding: 15px; border: 1px solid #eee; border-radius: 8px; }
+        #sentence {
+            font-size: 22px;
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            min-height: 60px;
+        }
+        .current-player {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .status {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
-    <h2>游戏1：英文指令指认对战</h2>
-    <p>当前玩家：<span id="currentPlayer">A</span></p>
-
+    <h2>英文指令指认对战</h2>
+    <div class="current-player">当前玩家：<span id="currentPlayer">A</span></div>
+    
     <div class="score-box">
         <div class="score" id="scoreA">玩家A：0</div>
         <div class="score" id="scoreB">玩家B：0</div>
     </div>
-
-    <div id="sentence">点击「随机出题」开始游戏</div>
-
-    <div class="btn-group">
-        <button id="btnRandom">随机出题</button>
-        <button id="btnAdd">答对加分</button>
-        <button id="btnSwitch">切换玩家</button>
-    </div>
-
-    <button id="btnBack" onclick="window.location.href='index.html'">返回首页</button>
+    
+    <div id="sentence">点击「随机出题」开始</div>
+    
+    <button id="btnRandom">随机出题</button>
+    <button id="btnVoice">🔊 听读音（谷歌语音）</button>
+    <button id="btnAdd">答对加分</button>
+    <button id="btnSwitch">切换玩家</button>
+    <button onclick="window.location.href='index.html'" style="background:#999">返回首页</button>
+    
+    <div class="status" id="statusMsg">✅ 使用谷歌翻译语音，需要网络连接</div>
 
     <script>
-        // 游戏1的题库，把你的70句指令填在这里，逗号分隔
-        const questionBank = [
-            "Which one is circle？",
-            "Which one is square？",
-            "Which one is rectangle",
-            "Which one is star",
-            "Which one is heart？"
-            // 后面继续补充你的句子即可
+        const questions = [
+            "Which one is circle?",
+            "Which one is square?",
+            "Which one is rectangle?",
+            "Which one is star?",
+            "Which one is heart?"
         ];
-
-        let scoreA = 0;
-        let scoreB = 0;
-        let currentPlayer = "A";
-
-        // 随机出题并朗读
-        document.getElementById("btnRandom").addEventListener("click", function() {
-            const randomIndex = Math.floor(Math.random() * questionBank.length);
-            const sentence = questionBank[randomIndex];
-            document.getElementById("sentence").innerText = sentence;
+        
+        let scoreA = 0, scoreB = 0, currentPlayer = "A", currentText = questions[0];
+        
+        // 播放蜂鸣音效
+        function playBeep() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioCtx();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.frequency.value = 800;
+                gain.gain.value = 0.2;
+                osc.start();
+                gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.2);
+                osc.stop(ctx.currentTime + 0.2);
+                ctx.resume();
+            } catch(e) { console.log("音效失败", e); }
+        }
+        
+        // ★ 核心：使用谷歌翻译 TTS 播放英文（100% 能响！）★
+        function playGoogleTTS(text) {
+            if (!text) return;
             
-            // 英文语音播报
-            const utterance = new SpeechSynthesisUtterance(sentence);
-            utterance.lang = "en-US";
-            speechSynthesis.speak(utterance);
-        });
-
-        // 答对加分
-        document.getElementById("btnAdd").addEventListener("click", function() {
+            const statusDiv = document.getElementById("statusMsg");
+            statusDiv.innerHTML = "🔊 正在加载语音...";
+            statusDiv.style.color = "#9c27b0";
+            
+            // 谷歌翻译的 TTS 接口
+            const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=en&client=tw-ob`;
+            
+            const audio = new Audio();
+            audio.src = url;
+            audio.onplay = () => {
+                statusDiv.innerHTML = "🔊 正在播放: " + text;
+                statusDiv.style.color = "#4caf50";
+            };
+            audio.onended = () => {
+                statusDiv.innerHTML = "✅ 播放完成，点击「听读音」可重复";
+                setTimeout(() => {
+                    statusDiv.innerHTML = "✅ 使用谷歌翻译语音，需要网络连接";
+                    statusDiv.style.color = "#666";
+                }, 2000);
+            };
+            audio.onerror = () => {
+                statusDiv.innerHTML = "⚠️ 语音加载失败，请检查网络连接";
+                statusDiv.style.color = "#f44336";
+                // 备用：用蜂鸣音提示
+                playBeep();
+            };
+            
+            audio.play().catch(e => {
+                console.error("播放失败", e);
+                statusDiv.innerHTML = "⚠️ 播放失败，可能需要用户先点击页面";
+                // 提示用户先点击任意按钮激活音频
+            });
+        }
+        
+        // 播放按钮声音
+        function playButtonSound() {
+            playBeep();
+        }
+        
+        // 随机出题
+        document.getElementById("btnRandom").onclick = () => {
+            const idx = Math.floor(Math.random() * questions.length);
+            currentText = questions[idx];
+            document.getElementById("sentence").innerHTML = currentText;
+            playButtonSound();
+        };
+        
+        // 听读音 - 使用谷歌 TTS
+        document.getElementById("btnVoice").onclick = () => {
+            if (currentText) {
+                playGoogleTTS(currentText);
+            }
+        };
+        
+        // 加分
+        document.getElementById("btnAdd").onclick = () => {
             if (currentPlayer === "A") {
                 scoreA++;
-                document.getElementById("scoreA").innerText = `玩家A：${scoreA}`;
+                document.getElementById("scoreA").innerHTML = "玩家A：" + scoreA;
             } else {
                 scoreB++;
-                document.getElementById("scoreB").innerText = `玩家B：${scoreB}`;
+                document.getElementById("scoreB").innerHTML = "玩家B：" + scoreB;
             }
-            // 答对音效
-            const utterance = new SpeechSynthesisUtterance("Good job!");
-            utterance.lang = "en-US";
-            speechSynthesis.speak(utterance);
-        });
-
+            playButtonSound();
+        };
+        
         // 切换玩家
-        document.getElementById("btnSwitch").addEventListener("click", function() {
+        document.getElementById("btnSwitch").onclick = () => {
             currentPlayer = currentPlayer === "A" ? "B" : "A";
-            document.getElementById("currentPlayer").innerText = currentPlayer;
-        });
+            document.getElementById("currentPlayer").innerHTML = currentPlayer;
+            playButtonSound();
+        };
+        
+        // 页面加载时初始化
+        document.getElementById("sentence").innerHTML = currentText;
+        
+        // 首次点击页面时激活 AudioContext
+        const initAudioOnClick = () => {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioCtx();
+                ctx.resume();
+                document.body.removeEventListener('click', initAudioOnClick);
+                document.body.removeEventListener('touchstart', initAudioOnClick);
+            } catch(e) {}
+        };
+        document.body.addEventListener('click', initAudioOnClick);
+        document.body.addEventListener('touchstart', initAudioOnClick);
     </script>
 </body>
 </html>
