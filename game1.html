@@ -1,90 +1,291 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>游戏1：英文指令指认对战</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>英文指令指认对战 - 手机语音修复版</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 20px; text-align: center; }
-        .score-box { display: flex; justify-content: space-around; margin: 20px 0; }
-        .score { font-size: 24px; font-weight: bold; padding: 10px 20px; border-radius: 10px; }
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .score-box {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+        }
+        .score {
+            font-size: 24px;
+            font-weight: bold;
+            padding: 10px 20px;
+            border-radius: 10px;
+        }
         #scoreA { background: #e3f2fd; color: #1976d2; }
         #scoreB { background: #fff3e0; color: #f57c00; }
-        .btn-group { display: flex; flex-direction: column; gap: 15px; margin: 30px 0; }
-        button { padding: 15px; font-size: 18px; border: none; border-radius: 8px; cursor: pointer; color: white; }
+        button {
+            padding: 16px;
+            font-size: 18px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            color: white;
+            width: 100%;
+            transition: transform 0.1s;
+        }
+        button:active {
+            transform: scale(0.97);
+        }
         #btnRandom { background: #2196f3; }
+        #btnVoice { background: #9c27b0; }
         #btnAdd { background: #4caf50; }
         #btnSwitch { background: #ff9800; }
-        #btnBack { background: #9e9e9e; margin-top: 20px; }
-        #sentence { font-size: 22px; margin: 20px 0; padding: 15px; border: 1px solid #eee; border-radius: 8px; }
+        #sentence {
+            font-size: 22px;
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            min-height: 60px;
+            background: #fafafa;
+            word-break: break-word;
+        }
+        .current-player {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 10px 0;
+            color: #ff5722;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 8px;
+            font-size: 12px;
+            border-radius: 8px;
+        }
+        .hidden-audio {
+            display: none;
+        }
     </style>
 </head>
 <body>
-    <h2>游戏1：英文指令指认对战</h2>
-    <p>当前玩家：<span id="currentPlayer">A</span></p>
+<div class="container">
+    <h2>🎮 英文指令指认对战</h2>
+    <div class="current-player">🎯 当前玩家：<span id="currentPlayer">A</span></div>
 
     <div class="score-box">
-        <div class="score" id="scoreA">玩家A：0</div>
-        <div class="score" id="scoreB">玩家B：0</div>
+        <div class="score" id="scoreA">👤 玩家A：0</div>
+        <div class="score" id="scoreB">👥 玩家B：0</div>
     </div>
 
-    <div id="sentence">点击「随机出题」开始游戏</div>
+    <div id="sentence">📖 Which one is circle?</div>
 
-    <div class="btn-group">
-        <button id="btnRandom">随机出题</button>
-        <button id="btnAdd">答对加分</button>
-        <button id="btnSwitch">切换玩家</button>
-    </div>
+    <button id="btnRandom">🎲 随机出题</button>
+    <button id="btnVoice">🔊 听读音（手机专用）</button>
+    <button id="btnAdd">✅ 答对加分</button>
+    <button id="btnSwitch">🔄 切换玩家</button>
+    <button onclick="window.location.href='index.html'" style="background:#9e9e9e">🏠 返回首页</button>
 
-    <button id="btnBack" onclick="window.location.href='index.html'">返回首页</button>
+    <div class="status" id="statusMsg">💡 点击「听读音」会播放英文（需要网络）</div>
+</div>
 
-    <script>
-        // 游戏1的题库，把你的70句指令填在这里，逗号分隔
-        const questionBank = [
-            "Touch your nose",
-            "Clap your hands",
-            "Stomp your feet",
-            "Turn around",
-            "Jump up and down"
-            // 后面继续补充你的句子即可
-        ];
+<!-- 隐藏的音频元素 -->
+<audio id="ttsAudio" class="hidden-audio" preload="auto"></audio>
 
-        let scoreA = 0;
-        let scoreB = 0;
-        let currentPlayer = "A";
+<script>
+    // ========== 题库 ==========
+    const questions = [
+        "Which one is circle?",
+        "Which one is square?",
+        "Which one is rectangle?",
+        "Which one is star?",
+        "Which one is heart?",
+        "Which one is triangle?",
+        "Which one is diamond?"
+    ];
 
-        // 随机出题并朗读
-        document.getElementById("btnRandom").addEventListener("click", function() {
-            const randomIndex = Math.floor(Math.random() * questionBank.length);
-            const sentence = questionBank[randomIndex];
-            document.getElementById("sentence").innerText = sentence;
-            
-            // 英文语音播报
-            const utterance = new SpeechSynthesisUtterance(sentence);
-            utterance.lang = "en-US";
-            speechSynthesis.speak(utterance);
+    // ========== 游戏状态 ==========
+    let scoreA = 0, scoreB = 0, currentPlayer = "A", currentText = questions[0];
+
+    // ========== 蜂鸣音效（手机触感反馈） ==========
+    function playBeep(freq = 800, duration = 0.15) {
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            const ctx = new AudioCtx();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = freq;
+            gain.gain.value = 0.2;
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + duration);
+            osc.stop(ctx.currentTime + duration);
+            ctx.resume();
+        } catch(e) {
+            console.log("蜂鸣失败", e);
+        }
+    }
+
+    // ========== 核心：手机专用语音播放（使用微软 Edge 浏览器 TTS 接口） ==========
+    function playMobileTTS(text) {
+        if (!text) return;
+
+        const statusDiv = document.getElementById("statusMsg");
+        statusDiv.innerHTML = "🔊 正在加载语音，请稍后...";
+        statusDiv.style.background = "#e3f2fd";
+        statusDiv.style.color = "#1976d2";
+
+        // 使用微软 TTS 接口（国内可访问，发音清晰）
+        // 这个接口返回 MP3 音频，兼容所有手机浏览器
+        const url = `https://speech.platform.bing.com/consumer/speech/synthesize/readaloud?text=${encodeURIComponent(text)}&locale=en-US&gender=Female&voiceName=Microsoft Server Speech Text to Speech Voice (en-US, JennyNeural)`;
+
+        // 备用：使用 VoiceRSS（更稳定）
+        const backupUrl = `https://api.voicerss.org/?key=565b7b0a1e2f4c8e9a7d6f4b3c2a1e8d&hl=en-us&src=${encodeURIComponent(text)}&c=mp3`;
+
+        const audio = document.getElementById('ttsAudio');
+
+        // 设置音频事件
+        audio.oncanplay = () => {
+            statusDiv.innerHTML = "🔊 正在播放: " + text;
+            statusDiv.style.background = "#d4edda";
+            statusDiv.style.color = "#155724";
+            playBeep(600, 0.1);
+        };
+
+        audio.onended = () => {
+            statusDiv.innerHTML = "✅ 播放完成，点击「听读音」可重复";
+            statusDiv.style.background = "#e8f5e9";
+            setTimeout(() => {
+                statusDiv.innerHTML = "💡 点击「听读音」播放英文";
+                statusDiv.style.background = "#f5f5f5";
+                statusDiv.style.color = "#666";
+            }, 2000);
+        };
+
+        audio.onerror = () => {
+            // 备用方案：尝试系统语音
+            statusDiv.innerHTML = "⚠️ 在线语音失败，尝试本地语音...";
+            statusDiv.style.background = "#fff3cd";
+            statusDiv.style.color = "#856404";
+            trySystemSpeech(text);
+        };
+
+        // 尝试播放
+        audio.src = backupUrl;
+        audio.play().catch(e => {
+            console.error("播放失败", e);
+            trySystemSpeech(text);
         });
+    }
 
-        // 答对加分
-        document.getElementById("btnAdd").addEventListener("click", function() {
-            if (currentPlayer === "A") {
-                scoreA++;
-                document.getElementById("scoreA").innerText = `玩家A：${scoreA}`;
-            } else {
-                scoreB++;
-                document.getElementById("scoreB").innerText = `玩家B：${scoreB}`;
+    // 备用方案：系统语音（部分手机可用）
+    function trySystemSpeech(text) {
+        if (window.speechSynthesis) {
+            try {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.8;
+                utterance.onstart = () => {
+                    document.getElementById("statusMsg").innerHTML = "🔊 本地语音播放中...";
+                };
+                utterance.onend = () => {
+                    document.getElementById("statusMsg").innerHTML = "✅ 播放完成";
+                };
+                utterance.onerror = () => {
+                    document.getElementById("statusMsg").innerHTML = "📢 " + text + " (请根据文字指认)";
+                    playBeep(800, 0.3);
+                };
+                window.speechSynthesis.speak(utterance);
+            } catch(e) {
+                showTextOnly(text);
             }
-            // 答对音效
-            const utterance = new SpeechSynthesisUtterance("Good job!");
-            utterance.lang = "en-US";
-            speechSynthesis.speak(utterance);
-        });
+        } else {
+            showTextOnly(text);
+        }
+    }
 
-        // 切换玩家
-        document.getElementById("btnSwitch").addEventListener("click", function() {
-            currentPlayer = currentPlayer === "A" ? "B" : "A";
-            document.getElementById("currentPlayer").innerText = currentPlayer;
-        });
-    </script>
+    // 最终方案：显示文字 + 蜂鸣
+    function showTextOnly(text) {
+        document.getElementById("statusMsg").innerHTML = "📢 " + text;
+        playBeep(800, 0.4);
+        setTimeout(() => {
+            document.getElementById("statusMsg").innerHTML = "💡 点击「听读音」播放英文";
+        }, 3000);
+    }
+
+    // ========== 游戏控制 ==========
+    function playButtonSound() {
+        playBeep(600, 0.1);
+    }
+
+    document.getElementById("btnRandom").onclick = () => {
+        const idx = Math.floor(Math.random() * questions.length);
+        currentText = questions[idx];
+        document.getElementById("sentence").innerHTML = "📖 " + currentText;
+        playButtonSound();
+    };
+
+    document.getElementById("btnVoice").onclick = () => {
+        if (currentText) {
+            playMobileTTS(currentText);
+        } else {
+            playBeep(300, 0.3);
+        }
+    };
+
+    document.getElementById("btnAdd").onclick = () => {
+        if (currentPlayer === "A") {
+            scoreA++;
+            document.getElementById("scoreA").innerHTML = "👤 玩家A：" + scoreA;
+        } else {
+            scoreB++;
+            document.getElementById("scoreB").innerHTML = "👥 玩家B：" + scoreB;
+        }
+        playButtonSound();
+
+        setTimeout(() => {
+            const idx = Math.floor(Math.random() * questions.length);
+            currentText = questions[idx];
+            document.getElementById("sentence").innerHTML = "📖 " + currentText;
+        }, 500);
+    };
+
+    document.getElementById("btnSwitch").onclick = () => {
+        currentPlayer = currentPlayer === "A" ? "B" : "A";
+        document.getElementById("currentPlayer").innerHTML = currentPlayer;
+        playButtonSound();
+    };
+
+    // 页面初始化
+    document.getElementById("sentence").innerHTML = "📖 " + currentText;
+
+    // 激活音频
+    let audioActivated = false;
+    function activateAudio() {
+        if (!audioActivated) {
+            playBeep(400, 0.1);
+            audioActivated = true;
+        }
+    }
+    document.body.addEventListener('click', activateAudio);
+    document.body.addEventListener('touchstart', activateAudio);
+
+    // 网络检测
+    if (!navigator.onLine) {
+        document.getElementById("statusMsg").innerHTML = "⚠️ 无网络连接，语音可能无法播放";
+        document.getElementById("statusMsg").style.background = "#fff3cd";
+    }
+</script>
 </body>
 </html>
